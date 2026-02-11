@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  video-manager:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - VIDEO_DIR=/data/videos
+    volumes:
+      - /opt/videos:/data/videos
+    restart: unless-stopped
