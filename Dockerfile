@@ -8,9 +8,9 @@ RUN npm install --production
 COPY . .
 
 ENV PORT=3000
-ENV VIDEO_DIR=/data/app/videos
+ENV VIDEO_DIR=/data/videos
 
-RUN mkdir -p /data/app/videos
+RUN mkdir -p /data/videos
 
 EXPOSE 3000
 
