@@ -3,7 +3,9 @@ const fileInput = document.getElementById("fileInput");
 const uploadStatus = document.getElementById("uploadStatus");
 const videoList = document.getElementById("videoList");
 const refreshBtn = document.getElementById("refreshBtn");
-const player = document.getElementById("player");
+const videoPlayer = document.getElementById("videoPlayer");
+const audioPlayer = document.getElementById("audioPlayer");
+const imageViewer = document.getElementById("imageViewer");
 const currentVideo = document.getElementById("currentVideo");
 
 function formatSize(bytes) {
@@ -23,6 +25,41 @@ function formatSize(bytes) {
 function setStatus(element, text, isError = false) {
   element.textContent = text;
   element.classList.toggle("error", isError);
+}
+
+function getCategory(file) {
+  const type = (file.type || "").toLowerCase();
+  if (type.startsWith("video/")) {
+    return "video";
+  }
+  if (type.startsWith("audio/")) {
+    return "audio";
+  }
+  if (type.startsWith("image/")) {
+    return "image";
+  }
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (["mp4", "webm", "ogg", "mov", "mkv"].includes(ext)) {
+    return "video";
+  }
+  if (["mp3", "wav", "aac", "flac", "m4a", "ogg"].includes(ext)) {
+    return "audio";
+  }
+  if (["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(ext)) {
+    return "image";
+  }
+  return "unknown";
+}
+
+function resetPlayers() {
+  videoPlayer.pause();
+  audioPlayer.pause();
+  videoPlayer.classList.add("hidden");
+  audioPlayer.classList.add("hidden");
+  imageViewer.classList.add("hidden");
+  videoPlayer.removeAttribute("src");
+  audioPlayer.removeAttribute("src");
+  imageViewer.removeAttribute("src");
 }
 
 async function fetchVideos() {
@@ -50,12 +87,27 @@ function renderList(files) {
     title.textContent = `${file.name} (${formatSize(file.size)})`;
 
     const playBtn = document.createElement("button");
-    playBtn.textContent = "播放";
+    playBtn.textContent = "播放/查看";
     playBtn.addEventListener("click", () => {
       const encoded = encodeURIComponent(file.name);
-      player.src = `/api/videos/${encoded}`;
-      player.play();
-      setStatus(currentVideo, `正在播放：${file.name}`);
+      const category = getCategory(file);
+      resetPlayers();
+      if (category === "video") {
+        videoPlayer.src = `/api/videos/${encoded}`;
+        videoPlayer.classList.remove("hidden");
+        videoPlayer.play();
+      } else if (category === "audio") {
+        audioPlayer.src = `/api/videos/${encoded}`;
+        audioPlayer.classList.remove("hidden");
+        audioPlayer.play();
+      } else if (category === "image") {
+        imageViewer.src = `/api/videos/${encoded}`;
+        imageViewer.classList.remove("hidden");
+      } else {
+        setStatus(currentVideo, "不支持的媒体类型", true);
+        return;
+      }
+      setStatus(currentVideo, `当前媒体：${file.name}`);
     });
 
     const downloadLink = document.createElement("a");
@@ -63,9 +115,34 @@ function renderList(files) {
     downloadLink.href = `/api/videos/${encodeURIComponent(file.name)}/download`;
     downloadLink.setAttribute("download", file.name);
 
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "删除";
+    deleteBtn.addEventListener("click", async () => {
+      const confirmed = window.confirm(`确定删除 ${file.name} 吗？`);
+      if (!confirmed) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/videos/${encodeURIComponent(file.name)}`, {
+          method: "DELETE"
+        });
+        if (!res.ok) {
+          throw new Error("删除失败");
+        }
+        if (currentVideo.textContent.includes(file.name)) {
+          resetPlayers();
+          setStatus(currentVideo, "");
+        }
+        await refreshList();
+      } catch (err) {
+        setStatus(uploadStatus, err.message || "删除失败", true);
+      }
+    });
+
     li.appendChild(title);
     li.appendChild(playBtn);
     li.appendChild(downloadLink);
+    li.appendChild(deleteBtn);
     videoList.appendChild(li);
   });
 }
@@ -83,7 +160,7 @@ uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const file = fileInput.files[0];
   if (!file) {
-    setStatus(uploadStatus, "请先选择视频文件", true);
+    setStatus(uploadStatus, "请先选择媒体文件", true);
     return;
   }
   const formData = new FormData();

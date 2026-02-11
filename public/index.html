@@ -8,25 +8,27 @@
   </head>
   <body>
     <main class="container">
-      <h1>视频管理工具</h1>
+      <h1>媒体管理工具</h1>
       <section class="card">
-        <h2>上传视频</h2>
+        <h2>上传媒体</h2>
         <form id="uploadForm">
-          <input id="fileInput" type="file" accept="video/*" />
+          <input id="fileInput" type="file" accept="video/*,audio/*,image/*" />
           <button type="submit">上传</button>
         </form>
         <p id="uploadStatus" class="status"></p>
       </section>
 
       <section class="card">
-        <h2>视频列表</h2>
+        <h2>媒体列表</h2>
         <button id="refreshBtn">刷新</button>
         <ul id="videoList" class="video-list"></ul>
       </section>
 
       <section class="card">
-        <h2>播放</h2>
-        <video id="player" controls></video>
+        <h2>播放/查看</h2>
+        <video id="videoPlayer" class="hidden" controls></video>
+        <audio id="audioPlayer" class="hidden" controls></audio>
+        <img id="imageViewer" class="hidden" alt="图片预览" />
         <p id="currentVideo" class="status"></p>
       </section>
     </main>

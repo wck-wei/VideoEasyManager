@@ -7,6 +7,8 @@ services:
       - "3000:3000"
     environment:
       - VIDEO_DIR=/data/videos
+      - AUTH_USER
+      - AUTH_PASS
     volumes:
       - /opt/videos:/data/videos
     restart: unless-stopped

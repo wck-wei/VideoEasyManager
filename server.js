@@ -7,6 +7,8 @@ const mime = require("mime-types");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const VIDEO_DIR = process.env.VIDEO_DIR || path.join(__dirname, "videos");
+const AUTH_USER = process.env.AUTH_USER || "admin";
+const AUTH_PASS = process.env.AUTH_PASS || "admin123";
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -32,6 +34,24 @@ function uniqueName(dirPath, filename) {
 
 ensureDir(VIDEO_DIR);
 
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  if (!authHeader.startsWith("Basic ")) {
+    res.set("WWW-Authenticate", "Basic realm=\"VideoEasyManager\"");
+    res.status(401).send("Authentication required");
+    return;
+  }
+  const encoded = authHeader.replace("Basic ", "");
+  const decoded = Buffer.from(encoded, "base64").toString("utf8");
+  const [user, pass] = decoded.split(":");
+  if (user === AUTH_USER && pass === AUTH_PASS) {
+    next();
+    return;
+  }
+  res.set("WWW-Authenticate", "Basic realm=\"VideoEasyManager\"");
+  res.status(401).send("Invalid credentials");
+}
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, VIDEO_DIR);
@@ -45,6 +65,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+app.use(authMiddleware);
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/videos", (_req, res) => {
@@ -60,6 +81,7 @@ app.get("/api/videos", (_req, res) => {
         const stat = fs.statSync(fullPath);
         return {
           name: entry.name,
+          type: mime.lookup(fullPath) || "application/octet-stream",
           size: stat.size,
           mtime: stat.mtimeMs
         };
@@ -75,6 +97,22 @@ app.post("/api/videos", upload.single("file"), (req, res) => {
     return;
   }
   res.json({ name: req.file.filename });
+});
+
+app.delete("/api/videos/:name", (req, res) => {
+  const name = sanitizeName(req.params.name);
+  const filePath = path.join(VIDEO_DIR, name);
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: "文件不存在" });
+    return;
+  }
+  fs.unlink(filePath, (err) => {
+    if (err) {
+      res.status(500).json({ error: "删除失败" });
+      return;
+    }
+    res.json({ name });
+  });
 });
 
 app.get("/api/videos/:name/download", (req, res) => {
